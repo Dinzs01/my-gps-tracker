@@ -35,27 +35,35 @@
             return;
         }
 
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                alert("GPS Found! Sending to Firebase..."); // 2. Confirm GPS works
-                database.ref('live_location').set({
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    timestamp: new Date().toISOString()
-                }).then(() => {
-                    alert("✅ Data is in Firebase!");
-                });
-            },
-            (err) => {
-                // 3. This tells us EXACTLY why it failed
-                alert("Error Code: " + err.code + " - " + err.message);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
+       navigator.geolocation.getCurrentPosition(
+    (pos) => {
+        alert("GPS Found! Sending to Firebase...");
+        database.ref('live_location').set({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            timestamp: new Date().toISOString()
+        }).then(() => {
+            alert("✅ Data is in Firebase!");
+        });
+    },
+    (err) => {
+        if (err.code === 3) {
+            alert("Timeout! Try turning on Wi-Fi or moving near a window.");
+        } else {
+            alert("Error: " + err.message);
+        }
+    },
+    { 
+        enableHighAccuracy: true, 
+        timeout: 30000,      // Increased to 30 seconds
+        maximumAge: 60000    // Allow a 1-minute old location to be used
+    }
+);
     };
     </script>
 </body>
 </html>
+
 
 
 
