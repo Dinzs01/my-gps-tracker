@@ -1,50 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live GPS Tracker</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+        #startBtn { 
+            position: relative; z-index: 1000; 
+            padding: 20px; background: #28a745; color: white; 
+            border: none; border-radius: 12px; font-size: 22px;
+            width: 90%; max-width: 300px;
+        }
+        #startBtn:active { background: #1e7e34; }
+    </style>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 50px;">
-        <h2>Phone GPS Tracker</h2>
-        <button id="startBtn" style="padding: 20px; background: green; color: white; border: none; border-radius: 10px; font-size: 20px;">
-            Start Sharing My Location
-        </button>
-        <p id="status" style="margin-top: 20px; font-family: Arial;">Ready to track...</p>
-    </div>
+    <h2>Phone GPS Tracker</h2>
+    <button id="startBtn" type="button">Start Sharing My Location</button>
+    <p id="status">Ready to track...</p>
 
     <script>
-        // 1. YOUR FIREBASE CONFIG
-        const firebaseConfig = {
-            databaseURL: "PASTE_YOUR_FIREBASE_URL_HERE"
-        };
+        const firebaseConfig = { databaseURL: "PASTE_YOUR_FIREBASE_URL_HERE" };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
-        const status = document.getElementById('status');
         const startBtn = document.getElementById('startBtn');
 
-        startBtn.onclick = () => {
-    console.log("Button clicked!"); // Check if this shows in your mobile console
-    if ("geolocation" in navigator) {
-        status.innerText = "Requesting GPS...";
-        navigator.geolocation.watchPosition(
-            (position) => {
-                // ... (your existing database logic)
-            }, 
-            (error) => {
-                // THIS WILL TELL YOU THE REAL ERROR
-                alert("GPS Error: " + error.message + " (Code: " + error.code + ")");
-                status.innerText = "Error: " + error.message;
-            }, 
-            { enableHighAccuracy: true, timeout: 5000 }
-        );
-    } else {
-        alert("Your browser does not support GPS tracking.");
-    }
-};
+        startBtn.addEventListener('click', function() {
+            if ("geolocation" in navigator) {
+                document.getElementById('status').innerText = "Requesting GPS...";
+                navigator.geolocation.watchPosition((position) => {
+                    database.ref('live_location').set({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                    document.getElementById('status').innerText = "✅ Tracking Active!";
+                    startBtn.style.background = "red";
+                }, (err) => alert("GPS Error: " + err.message), { enableHighAccuracy: true });
+            }
+        });
     </script>
 </body>
 </html>
+
 
