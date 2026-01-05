@@ -27,22 +27,36 @@
         const database = firebase.database();
         const startBtn = document.getElementById('startBtn');
 
-        startBtn.addEventListener('click', function() {
-            if ("geolocation" in navigator) {
-                document.getElementById('status').innerText = "Requesting GPS...";
-                navigator.geolocation.watchPosition((position) => {
-                    database.ref('live_location').set({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    });
-                    document.getElementById('status').innerText = "✅ Tracking Active!";
-                    startBtn.style.background = "red";
-                }, (err) => alert("GPS Error: " + err.message), { enableHighAccuracy: true });
-            }
-        });
+        startBtn.onclick = function() {
+        alert("Button Tap Detected!"); // 1. Confirm the tap works
+        
+        if (!navigator.geolocation) {
+            alert("Your browser blocks GPS or doesn't support it.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                alert("GPS Found! Sending to Firebase..."); // 2. Confirm GPS works
+                database.ref('live_location').set({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    timestamp: new Date().toISOString()
+                }).then(() => {
+                    alert("✅ Data is in Firebase!");
+                });
+            },
+            (err) => {
+                // 3. This tells us EXACTLY why it failed
+                alert("Error Code: " + err.code + " - " + err.message);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
     </script>
 </body>
 </html>
+
 
 
 
