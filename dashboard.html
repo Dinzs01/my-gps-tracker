@@ -13,23 +13,25 @@
         #map { height: 100vh; width: 100vw; }
         .controls {
             position: absolute; top: 10px; right: 10px; z-index: 1000;
-            display: flex; flex-direction: column; gap: 10px;
+            display: flex; flex-direction: column; gap: 8px;
         }
         .info-box {
             background: white; padding: 10px; border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3); font-family: Arial;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); font-family: Arial; font-size: 14px;
         }
-        #centerBtn {
-            padding: 10px; background: #007bff; color: white;
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
+        button {
+            padding: 10px; border: none; border-radius: 5px; 
+            cursor: pointer; font-weight: bold; color: white;
         }
-        #centerBtn:active { background: #0056b3; }
+        #centerBtn { background: #007bff; }
+        #clearBtn { background: #dc3545; }
     </style>
 </head>
 <body>
     <div class="controls">
         <div class="info-box" id="status">Waiting for data...</div>
         <button id="centerBtn">📍 Center on Me</button>
+        <button id="clearBtn">🗑️ Clear Path</button>
     </div>
     <div id="map"></div>
 
@@ -39,37 +41,38 @@
         const database = firebase.database();
 
         const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         let marker = null;
-        let path = L.polyline([], {color: 'blue'}).addTo(map);
+        let pathLine = L.polyline([], {color: 'blue', weight: 4}).addTo(map);
         let latestPos = null;
 
         database.ref('live_location').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 latestPos = [data.latitude, data.longitude];
-
+                
                 if (!marker) {
                     marker = L.marker(latestPos).addTo(map);
-                    map.setView(latestPos, 16); // Auto-center only on the first load
+                    map.setView(latestPos, 16);
                 } else {
                     marker.setLatLng(latestPos);
                 }
-                path.addLatLng(latestPos);
+                
+                pathLine.addLatLng(latestPos);
                 document.getElementById('status').innerText = `Updated: ${new Date().toLocaleTimeString()}`;
             }
         });
 
-        // 🎯 THE CENTER BUTTON LOGIC
+        // CENTER BUTTON
         document.getElementById('centerBtn').onclick = () => {
-            if (latestPos) {
-                map.flyTo(latestPos, 17); // Smoothly zoom and move to the marker
-            } else {
-                alert("No location data received yet!");
-            }
+            if (latestPos) map.flyTo(latestPos, 17);
+        };
+
+        // CLEAR PATH BUTTON
+        document.getElementById('clearBtn').onclick = () => {
+            pathLine.setLatLngs([]); // This empties the line coordinates
+            alert("Path cleared! New movement will start a new line.");
         };
     </script>
 </body>
