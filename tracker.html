@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live GPS Tracker</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Phone GPS Tracker</h2>
+        <button id="startBtn" style="padding: 20px; background: green; color: white; border: none; border-radius: 10px; font-size: 20px;">
+            Start Sharing My Location
+        </button>
+        <p id="status" style="margin-top: 20px; font-family: Arial;">Ready to track...</p>
+    </div>
+
+    <script>
+        // 1. YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            databaseURL: "PASTE_YOUR_FIREBASE_URL_HERE"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        const status = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+
+        startBtn.onclick = () => {
+            if ("geolocation" in navigator) {
+                status.innerText = "Requesting GPS Permission...";
+                
+                // 2. WATCH POSITION (This updates every time the phone moves)
+                navigator.geolocation.watchPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    // 3. SEND TO FIREBASE
+                    database.ref('live_location').set({
+                        latitude: lat,
+                        longitude: lon,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    status.innerHTML = `✅ Tracking Live!<br>Lat: ${lat}<br>Lon: ${lon}`;
+                    startBtn.style.background = "red";
+                    startBtn.innerText = "Tracking Active";
+                }, 
+                (error) => {
+                    status.innerText = "Error: " + error.message;
+                }, 
+                { enableHighAccuracy: true });
+            } else {
+                status.innerText = "GPS not supported on this browser.";
+            }
+        };
+    </script>
+</body>
+</html>
