@@ -26,33 +26,25 @@
         const startBtn = document.getElementById('startBtn');
 
         startBtn.onclick = () => {
-            if ("geolocation" in navigator) {
-                status.innerText = "Requesting GPS Permission...";
-                
-                // 2. WATCH POSITION (This updates every time the phone moves)
-                navigator.geolocation.watchPosition((position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-
-                    // 3. SEND TO FIREBASE
-                    database.ref('live_location').set({
-                        latitude: lat,
-                        longitude: lon,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    status.innerHTML = `✅ Tracking Live!<br>Lat: ${lat}<br>Lon: ${lon}`;
-                    startBtn.style.background = "red";
-                    startBtn.innerText = "Tracking Active";
-                }, 
-                (error) => {
-                    status.innerText = "Error: " + error.message;
-                }, 
-                { enableHighAccuracy: true });
-            } else {
-                status.innerText = "GPS not supported on this browser.";
-            }
-        };
+    console.log("Button clicked!"); // Check if this shows in your mobile console
+    if ("geolocation" in navigator) {
+        status.innerText = "Requesting GPS...";
+        navigator.geolocation.watchPosition(
+            (position) => {
+                // ... (your existing database logic)
+            }, 
+            (error) => {
+                // THIS WILL TELL YOU THE REAL ERROR
+                alert("GPS Error: " + error.message + " (Code: " + error.code + ")");
+                status.innerText = "Error: " + error.message;
+            }, 
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        alert("Your browser does not support GPS tracking.");
+    }
+};
     </script>
 </body>
 </html>
+
