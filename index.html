@@ -1,69 +1,139 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Science Expo: Live GPS Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live GPS Tracker</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-        #startBtn { 
-            position: relative; z-index: 1000; 
-            padding: 20px; background: #28a745; color: white; 
-            border: none; border-radius: 12px; font-size: 22px;
-            width: 90%; max-width: 300px;
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+        
+        /* Floating Control Panel */
+        .controls {
+            position: absolute; top: 15px; right: 15px; z-index: 1000;
+            display: flex; flex-direction: column; gap: 10px;
+            width: 220px;
         }
-        #startBtn:active { background: #1e7e34; }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-left: 5px solid #007bff;
+        }
+
+        .stat-label { font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase; }
+        .stat-value { font-size: 16px; color: #333; margin-bottom: 8px; }
+
+        button {
+            padding: 12px; border: none; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; color: white;
+            transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        #centerBtn { background: #007bff; }
+        #centerBtn:hover { background: #0056b3; }
+        
+        #clearBtn { background: #dc3545; }
+        #clearBtn:hover { background: #a71d2a; }
     </style>
 </head>
 <body>
-    <h2>Phone GPS Tracker</h2>
-    <button id="startBtn" type="button">Start Sharing My Location</button>
-    <p id="status">Ready to track...</p>
+
+    <div class="controls">
+        <div class="info-box">
+            <div class="stat-label">Status</div>
+            <div id="status" class="stat-value">Connecting...</div>
+            
+            <div class="stat-label">Last Signal</div>
+            <div id="time" class="stat-value">--:--:--</div>
+        </div>
+        
+        <button id="centerBtn">📍 CENTER ON TARGET</button>
+        <button id="clearBtn">🗑️ CLEAR SESSION</button>
+    </div>
+
+    <div id="map"></div>
 
     <script>
-        const firebaseConfig = { databaseURL: "https://gps-tracker-pro-9913a-default-rtdb.asia-southeast1.firebasedatabase.app/" };
+        // 1. CONFIGURATION (Replace with your actual Firebase URL)
+        const firebaseConfig = { 
+            databaseURL: "https://gps-tracker-pro-9913a-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+        };
+        
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const startBtn = document.getElementById('startBtn');
 
-        startBtn.onclick = function() {
-        alert("Button Tap Detected!"); // 1. Confirm the tap works
-        
-        if (!navigator.geolocation) {
-            alert("Your browser blocks GPS or doesn't support it.");
-            return;
-        }
+        // 2. INITIALIZE MAP
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap Contributors'
+        }).addTo(map);
 
-       navigator.geolocation.getCurrentPosition(
-    (pos) => {
-        alert("GPS Found! Sending to Firebase...");
-        database.ref('live_location').set({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            timestamp: new Date().toISOString()
-        }).then(() => {
-            alert("✅ Data is in Firebase!");
+        let liveMarker = null;
+        let pathLine = L.polyline([], {color: '#007bff', weight: 5, opacity: 0.7}).addTo(map);
+        let latestPos = null;
+
+        // 3. LISTEN FOR LIVE UPDATES
+        database.ref('live_location').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                latestPos = [data.latitude, data.longitude];
+                
+                // Update or Create the pulsing live marker
+                if (!liveMarker) {
+                    liveMarker = L.circleMarker(latestPos, {
+                        radius: 10, color: 'white', fillColor: '#007bff', 
+                        fillOpacity: 1, weight: 3
+                    }).addTo(map);
+                    map.setView(latestPos, 16); // Focus on first signal
+                } else {
+                    liveMarker.setLatLng(latestPos);
+                }
+
+                document.getElementById('status').innerText = "Receiving Data";
+                document.getElementById('time').innerText = new Date().toLocaleTimeString();
+            }
         });
-    },
-    (err) => {
-        if (err.code === 3) {
-            alert("Timeout! Try turning on Wi-Fi or moving near a window.");
-        } else {
-            alert("Error: " + err.message);
-        }
-    },
-    { 
-        enableHighAccuracy: true, 
-        timeout: 30000,      // Increased to 30 seconds
-        maximumAge: 60000    // Allow a 1-minute old location to be used
-    }
-);
-    };
+
+        // 4. LISTEN FOR HISTORY (To draw the trail)
+        database.ref('location_history').on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const pos = [data.latitude, data.longitude];
+                pathLine.addLatLng(pos);
+                
+                // Add a small "breadbox" dot for history
+                L.circle(pos, { radius: 2, color: 'blue' }).addTo(map);
+            }
+        });
+
+        // 5. BUTTON ACTIONS
+        document.getElementById('centerBtn').onclick = () => {
+            if (latestPos) {
+                map.flyTo(latestPos, 18, { animate: true, duration: 1.5 });
+            } else {
+                alert("Waiting for GPS signal...");
+            }
+        };
+
+        document.getElementById('clearBtn').onclick = () => {
+            if(confirm("This will clear the map trail. Continue?")) {
+                pathLine.setLatLngs([]);
+                // Note: This only clears the local view. 
+                // To clear the database, you'd use database.ref('location_history').remove();
+                location.reload(); 
+            }
+        };
     </script>
 </body>
 </html>
-
 
 
 
