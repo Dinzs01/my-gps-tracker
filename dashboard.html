@@ -3,34 +3,41 @@
 <head>
     <title>Live GPS Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
         #map { height: 100vh; width: 100vw; }
-        .info-box {
+        .controls {
             position: absolute; top: 10px; right: 10px; z-index: 1000;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .info-box {
             background: white; padding: 10px; border-radius: 5px;
             box-shadow: 0 0 10px rgba(0,0,0,0.3); font-family: Arial;
         }
+        #centerBtn {
+            padding: 10px; background: #007bff; color: white;
+            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
+        }
+        #centerBtn:active { background: #0056b3; }
     </style>
 </head>
 <body>
-    <div class="info-box" id="status">Waiting for data...</div>
+    <div class="controls">
+        <div class="info-box" id="status">Waiting for data...</div>
+        <button id="centerBtn">📍 Center on Me</button>
+    </div>
     <div id="map"></div>
 
     <script>
-        // 1. FIREBASE CONFIG
         const firebaseConfig = { databaseURL: "https://gps-tracker-pro-9913a-default-rtdb.asia-southeast1.firebasedatabase.app/" };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 2. INITIALIZE MAP (Starts at zoom 2)
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
@@ -38,30 +45,32 @@
 
         let marker = null;
         let path = L.polyline([], {color: 'blue'}).addTo(map);
+        let latestPos = null;
 
-        // 3. LISTEN FOR CHANGES (No Refresh Needed!)
         database.ref('live_location').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const lat = data.latitude;
-                const lon = data.longitude;
-                const pos = [lat, lon];
+                latestPos = [data.latitude, data.longitude];
 
-                // Update Marker
                 if (!marker) {
-                    marker = L.marker(pos).addTo(map);
-                    map.setView(pos, 16); // Center map on first data
+                    marker = L.marker(latestPos).addTo(map);
+                    map.setView(latestPos, 16); // Auto-center only on the first load
                 } else {
-                    marker.setLatLng(pos);
+                    marker.setLatLng(latestPos);
                 }
-
-                // Update Path Line
-                path.addLatLng(pos);
-                
-                // Update Status UI
-                document.getElementById('status').innerText = `Last Update: ${new Date().toLocaleTimeString()}`;
+                path.addLatLng(latestPos);
+                document.getElementById('status').innerText = `Updated: ${new Date().toLocaleTimeString()}`;
             }
         });
+
+        // 🎯 THE CENTER BUTTON LOGIC
+        document.getElementById('centerBtn').onclick = () => {
+            if (latestPos) {
+                map.flyTo(latestPos, 17); // Smoothly zoom and move to the marker
+            } else {
+                alert("No location data received yet!");
+            }
+        };
     </script>
 </body>
 </html>
